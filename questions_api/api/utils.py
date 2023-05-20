@@ -1,3 +1,4 @@
+"""Модуль с утилитами."""
 import requests
 
 from .models import Question
@@ -10,7 +11,8 @@ def get_questions_json(
     """
     params = {'count': count}  # параметры запроса
     response = requests.get(url=url, params=params)
-    return response.json()
+    if response.ok:
+        return response.json()
 
 
 def write_questions_to_db(data_list: list, count: int):

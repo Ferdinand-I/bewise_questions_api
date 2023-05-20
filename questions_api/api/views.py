@@ -12,11 +12,7 @@ class QuestionAPIView(APIView):
     {"questions_num": integer}, получает данные с открытого API,
     сохраняя их в БД.
     """
-    http_method_names = ['get', 'post']
-
-    def get(self, request):
-        data = QuestionSerializer(Question.objects.all(), many=True).data
-        return Response(data)
+    http_method_names = ['post']
 
     def post(self, request):
         """Вью-метод для POST-запроса."""
@@ -27,14 +23,13 @@ class QuestionAPIView(APIView):
         if QuestionsCountSerializer(data=data).is_valid():
             count = data.get('questions_num')
             json = get_questions_json(count)
-            write_questions_to_db(json, count)
-            # метод .last() возвращает последний сохранённый объект,
-            # в случае, если его нет, то он возвращает пустой объект
-            # с пустыми полями
-            return Response(
-                QuestionSerializer(the_last_object).data,
-                status=status.HTTP_201_CREATED
-            )
+            if json:
+                write_questions_to_db(json, count)
+                # метод .last() возвращает последний сохранённый объект,
+                # в случае, если его нет, то он возвращает пустой объект
+                # с пустыми полями
+                return Response(
+                    QuestionSerializer(the_last_object).data,
+                    status=status.HTTP_201_CREATED)
         return Response(
-            'Что-то пошло не так...', status=status.HTTP_400_BAD_REQUEST
-        )
+            'Что-то пошло не так...', status=status.HTTP_400_BAD_REQUEST)
