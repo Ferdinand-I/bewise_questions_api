@@ -13,7 +13,7 @@ class QuestionsCountSerializer(serializers.Serializer):
         """Валидация поля 'questions_num'."""
         if value < 1:
             raise ValidationError(
-                'Значение "question_nem" должно быть больше 0.')
+                'Значение "questions_num" должно быть больше 0.')
         return value
 
 
