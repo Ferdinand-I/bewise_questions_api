@@ -19,11 +19,15 @@ class QuestionAPIView(APIView):
         data = request.data
         # добываем заранее последний сохранённый объект, чтобы вернуть его
         the_last_object = Question.objects.last()
+        # сериализация данных
+        serializer = QuestionsCountSerializer(data=data)
         # валидация входящих данных
-        if QuestionsCountSerializer(data=data).is_valid():
-            count = data.get('questions_num')
+        if serializer.is_valid():
+            count = serializer.validated_data.get('questions_num')
+            # получаем данные из открытого API
             json = get_questions_json(count)
             if json:
+                # записываем уникальные вопросы в БД
                 write_questions_to_db(json, count)
                 # метод .last() возвращает последний сохранённый объект,
                 # в случае, если его нет, то он возвращает пустой объект
@@ -31,5 +35,8 @@ class QuestionAPIView(APIView):
                 return Response(
                     QuestionSerializer(the_last_object).data,
                     status=status.HTTP_201_CREATED)
+            return Response(
+                'Не удалось получить данные от внешнего сервера.',
+                status=status.HTTP_404_NOT_FOUND)
         return Response(
-            'Что-то пошло не так...', status=status.HTTP_400_BAD_REQUEST)
+            serializer.errors, status=status.HTTP_400_BAD_REQUEST)

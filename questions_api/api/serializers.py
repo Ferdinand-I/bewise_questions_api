@@ -1,15 +1,20 @@
 """Модуль с сериализаторами данных."""
 from rest_framework import serializers
+from rest_framework.validators import ValidationError
 
 from .models import Question
-from .validators import positive_integer_validator
 
 
 class QuestionsCountSerializer(serializers.Serializer):
     """Сериализатор для проверки данных в POST-запросе."""
-    questions_num = serializers.IntegerField(
-        validators=[positive_integer_validator]
-    )
+    questions_num = serializers.IntegerField()
+
+    def validate_questions_num(self, value: int):
+        """Валидация поля 'questions_num'."""
+        if value < 1:
+            raise ValidationError(
+                'Значение "question_nem" должно быть больше 0.')
+        return value
 
 
 class QuestionSerializer(serializers.ModelSerializer):

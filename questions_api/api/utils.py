@@ -19,11 +19,10 @@ def write_questions_to_db(data_list: list, count: int):
     """Функция записи данных вопроса в БД."""
     # формируем список уникальных записей
     objects = [
-        Question(
-            question_id=question.get('id'),
-            text=question.get('question'),
-            answer=question.get('answer'),
-            created_at=question.get('created_at'))
+        Question(question_id=question.get('id'),
+                 text=question.get('question'),
+                 answer=question.get('answer'),
+                 created_at=question.get('created_at'))
         for question in data_list
         if not Question.objects.filter(question_id=question.get('id')).exists()
     ]
@@ -34,6 +33,6 @@ def write_questions_to_db(data_list: list, count: int):
     # и рекурсивно вызываем функцию, чтобы набрать необходимое количество
     if count > len(objects):
         count = count - len(objects)
-        addition_request_json = get_questions_json(count)
-        write_questions_to_db(addition_request_json, count)
+        additional_request_json = get_questions_json(count)
+        write_questions_to_db(additional_request_json, count)
     return

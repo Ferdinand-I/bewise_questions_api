@@ -3,6 +3,7 @@ version: '2.7'
 services:
   db:
     image: postgres:14.0-alpine
+    restart: on-failure
     volumes:
       - bewisedata:/var/lib/postgresql/data/
     environment:
@@ -22,7 +23,7 @@ services:
   webapp:
     build: .
     container_name: django
-    restart: always
+    restart: on-failure
     ports:
       - "8000:8000"
     depends_on:
