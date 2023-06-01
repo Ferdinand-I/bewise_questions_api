@@ -1,38 +1,38 @@
 """Модуль с утилитами."""
 import requests
+from django.conf import settings
+from rest_framework import status
+from rest_framework.response import Response
 
 from .models import Question
 
 
-def get_questions_json(
-        count: int, url: str = 'https://jservice.io/api/random'):
-    """Добывает JSON-данные викторины с открытого API.
-    Count - количество запрашиваемых элементов в массиве данных ответа.
-    """
-    params = {'count': count}  # параметры запроса
-    response = requests.get(url=url, params=params)
-    if response.ok:
-        return response.json()
-
-
-def write_questions_to_db(data_list: list, count: int):
-    """Функция записи данных вопроса в БД."""
-    # формируем список уникальных записей
-    objects = [
-        Question(question_id=question.get('id'),
-                 text=question.get('question'),
-                 answer=question.get('answer'),
-                 created_at=question.get('created_at'))
-        for question in data_list
-        if not Question.objects.filter(question_id=question.get('id')).exists()
+def sync_remote_questions(count: int, last_object_data):
+    """Добываем удалённые записи вопросов для викторины и записываем в БД."""
+    # добываем данные с удалённого API
+    url = settings.REMOTE_URL
+    params = {'count': count}
+    response = requests.get(url, params)
+    if not response.ok:
+        return Response(
+            'Получен некорректный ответ от удалённого сервера.',
+            status=response.status_code)
+    json = response.json()
+    # Делаем один SQL-запрос, чтобы выгрузить все 'questions_id' для сравнения
+    ids = Question.objects.values_list('question_id', flat=True)
+    to_insert = [
+        Question(
+            question_id=question.get('id'),
+            text=question.get('question'),
+            answer=question.get('answer'),
+            created_at=question.get('created_at')
+        ) for question in json if question.get('id') not in ids
     ]
-    # записываем уникальные вопросы в БД
-    Question.objects.bulk_create(objects)
-    # если мы не набрали нужное количество уникальных записей, то сравниваем
-    # количество записанных данных с ожидаемым, считаем разницу
-    # и рекурсивно вызываем функцию, чтобы набрать необходимое количество
-    if count > len(objects):
-        count = count - len(objects)
-        additional_request_json = get_questions_json(count)
-        write_questions_to_db(additional_request_json, count)
-    return
+    # сохраняем уникальные объекты в БД
+    inserted = Question.objects.bulk_create(to_insert)
+    length_inserted = len(inserted)
+    # Если мы не получили достаточно уникальных объектов,
+    # то делаем новый удалённый запрос
+    if length_inserted != count:
+        sync_remote_questions(count - length_inserted, last_object_data)
+    return Response(last_object_data, status=status.HTTP_201_CREATED)
