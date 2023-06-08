@@ -3,11 +3,12 @@ import requests
 from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.utils.serializer_helpers import ReturnDict
 
 from .models import Question
 
 
-def sync_remote_questions(count: int, last_object_data):
+def sync_remote_questions(count: int, last_object_data: ReturnDict):
     """Добываем удалённые записи вопросов для викторины и записываем в БД."""
     # добываем данные с удалённого API
     url = settings.REMOTE_URL
@@ -34,5 +35,5 @@ def sync_remote_questions(count: int, last_object_data):
     # Если мы не получили достаточно уникальных объектов,
     # то делаем новый удалённый запрос
     if length_inserted != count:
-        sync_remote_questions(count - length_inserted, last_object_data)
+        return sync_remote_questions(count - length_inserted, last_object_data)
     return Response(last_object_data, status=status.HTTP_201_CREATED)

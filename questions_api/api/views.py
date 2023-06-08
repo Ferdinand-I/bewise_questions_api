@@ -20,11 +20,10 @@ class QuestionAPIView(APIView):
         # сериализация данных
         serializer = QuestionsCountSerializer(data=data)
         # валидация входящих данных
-        if serializer.is_valid():
-            last_saved_object_data = QuestionSerializer(
-                Question.objects.last()).data
-            count = serializer.validated_data.get('questions_num')
-            return sync_remote_questions(
-                count, last_saved_object_data)
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        last_saved_object_data = QuestionSerializer(
+            Question.objects.last()).data
+        count = serializer.validated_data.get('questions_num')
+        return sync_remote_questions(count, last_saved_object_data)
