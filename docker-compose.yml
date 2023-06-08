@@ -23,6 +23,8 @@ services:
   webapp:
     build: .
     container_name: django
+    environment:
+      DEBUG: False
     restart: on-failure
     ports:
       - "8000:8000"
