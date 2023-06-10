@@ -2,9 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Question
-from .serializers import QuestionsCountSerializer, QuestionSerializer
-from .utils import sync_remote_questions
+from .serializers import QuestionsCountSerializer
+from .utils import collect_and_save_unique_objects
 
 
 class QuestionAPIView(APIView):
@@ -23,7 +22,5 @@ class QuestionAPIView(APIView):
         if not serializer.is_valid():
             return Response(
                 serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        last_saved_object_data = QuestionSerializer(
-            Question.objects.last()).data
         count = serializer.validated_data.get('questions_num')
-        return sync_remote_questions(count, last_saved_object_data)
+        return collect_and_save_unique_objects(count)

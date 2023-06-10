@@ -3,37 +3,49 @@ import requests
 from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.utils.serializer_helpers import ReturnDict
 
 from .models import Question
+from .serializers import QuestionSerializer
 
 
-def sync_remote_questions(count: int, last_object_data: ReturnDict):
-    """Добываем удалённые записи вопросов для викторины и записываем в БД."""
-    # добываем данные с удалённого API
+def collect_and_save_unique_objects(count: int):
+    """Собирает уникальные объекты с удалённого сервера
+    и записывает их в БД.
+    """
+    # список существующих id вопросов в БД
+    ids = set(Question.objects.values_list('question_id', flat=True))
     url = settings.REMOTE_URL
-    params = {'count': count}
-    response = requests.get(url, params)
-    if not response.ok:
-        return Response(
-            'Получен некорректный ответ от удалённого сервера.',
-            status=response.status_code)
-    json = response.json()
-    # Делаем один SQL-запрос, чтобы выгрузить все 'questions_id' для сравнения
-    ids = Question.objects.values_list('question_id', flat=True)
-    to_insert = [
-        Question(
-            question_id=question.get('id'),
-            text=question.get('question'),
-            answer=question.get('answer'),
-            created_at=question.get('created_at')
-        ) for question in json if question.get('id') not in ids
-    ]
-    # сохраняем уникальные объекты в БД
-    inserted = Question.objects.bulk_create(to_insert)
-    length_inserted = len(inserted)
-    # Если мы не получили достаточно уникальных объектов,
-    # то делаем новый удалённый запрос
-    if length_inserted != count:
-        return sync_remote_questions(count - length_inserted, last_object_data)
-    return Response(last_object_data, status=status.HTTP_201_CREATED)
+    unique_objects_to_insert = list()
+    last_saved_object_data = QuestionSerializer(Question.objects.last()).data
+
+    while count > 0:
+        params = {'count': count}
+        response = requests.get(url, params)
+        if not response.ok:
+            return Response(
+                'Получен некорректный ответ от удалённого сервера.',
+                status=response.status_code)
+
+        json = response.json()
+        unique_objects = [
+            Question(
+                question_id=question.get('id'),
+                text=question.get('question'),
+                answer=question.get('answer'),
+                created_at=question.get('created_at')
+            ) for question in json if question.get('id') not in ids
+        ]
+        unique_objects_to_insert.extend(unique_objects)
+        ids.update(
+            (question.question_id for question in unique_objects_to_insert)
+        )
+        count -= len(unique_objects)
+
+    # На случай параллельных запросов к БД ставим флаг ignore_conflicts=True
+    inserted = Question.objects.bulk_create(
+        unique_objects_to_insert, ignore_conflicts=True)
+    response_data = {
+        'count_new_questions': len(inserted),
+        'last_saved_question': last_saved_object_data
+    }
+    return Response(response_data, status=status.HTTP_201_CREATED)
